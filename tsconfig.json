@@ -1,0 +1,52 @@
+{
+  "compilerOptions": {
+    "target": "es5", // Next.js 권장 사항은 es5 또는 esnext (es2017도 문제는 없으나, es5가 호환성이 더 넓습니다)
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true, // strict 모드 유지 (권장)
+    // "noEmit": true, // Next.js는 자체적으로 빌드하므로 true가 맞습니다.
+    "esModuleInterop": true,
+    "module": "esnext", // Next.js에서 권장
+    "moduleResolution": "bundler", // 최신 Next.js/TypeScript에서 권장 (기존 bundler도 OK)
+    // 또는 "node"도 많이 사용됩니다. "bundler"는 TypeScript 5.0+에서 도입.
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve", // JSX 처리를 Babel에 위임 (Next.js 표준)
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "baseUrl": ".", // baseUrl 설정 유지
+    "paths": {
+      "@/*": [
+        "./*"
+      ] // 기존 경로 별칭 유지
+    },
+    // 추가적인 타입 안정성을 위한 옵션 (선택 사항)
+    "forceConsistentCasingInFileNames": true, // 파일 이름의 대소문자 구분 강제
+    "noFallthroughCasesInSwitch": true // switch 문에서 fallthrough case 방지
+    ,
+    "noEmit": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    // 프로젝트 구조에 따라 명시적으로 추가할 경로가 있다면 여기에 추가합니다.
+    // 예: "lib/**/*.ts", "components/**/*.tsx", "stores/**/*.ts", "contexts/**/*.tsx" 등
+    // 하지만 "**/*.ts", "**/*.tsx"가 대부분 커버합니다.
+    "app/**/*.ts", // App Router를 사용하고 있다면 명시적으로 추가하는 것이 좋을 수 있습니다.
+    "app/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
