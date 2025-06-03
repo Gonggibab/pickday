@@ -1,4 +1,3 @@
-// app/create/page.tsx
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
@@ -6,18 +5,18 @@ import CalendarPicker from "@/components/CalendarPicker";
 import Input from "@/components/Input";
 import Button from "@/components/Button";
 import { useCalendarStore } from "@/stores/useCalendarStore";
+import { useUIStore } from "@/stores/useUIStore"; // UI 스토어 import
 import { useRouter } from "next/navigation";
-// import { useTranslation } from 'react-i18next'; // 제거
 
 const CreatePage = () => {
-  // const { t } = useTranslation(); // 제거
-
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
-  const [titleError, setTitleError] = useState("");
+  const [titleError, setTitleError] = useState(""); // 인라인 에러 메시지용 (선택적으로 유지 또는 제거)
   const [voteType, setVoteType] = useState<"date" | "datetime">("date");
   const { resetDates, startDate, endDate } = useCalendarStore();
   const router = useRouter();
+
+  const showAlert = useUIStore((state) => state.showAlert); // useUIStore에서 showAlert 가져오기
 
   const [displayedStep, setDisplayedStep] = useState(1);
   const [currentContentClasses, setCurrentContentClasses] = useState(
@@ -43,7 +42,8 @@ const CreatePage = () => {
   const handlePrevStep = useCallback(() => {
     if (step === 2 && (startDate || endDate)) {
       const confirmReset = window.confirm(
-        "선택하신 날짜 정보가 초기화됩니다. 뒤로 가시겠습니까?" // 한국어 직접 사용
+        // 이 confirm은 유지하거나 커스텀 Confirm 모달로 변경 가능
+        "선택하신 날짜 정보가 초기화됩니다. 뒤로 가시겠습니까?"
       );
       if (confirmReset) {
         resetDates();
@@ -57,13 +57,15 @@ const CreatePage = () => {
   const handleNextStep = useCallback(() => {
     if (step === 1) {
       if (title.trim() === "") {
-        setTitleError("약속 제목을 입력해주세요."); // 한국어 직접 사용
+        // 인라인 에러 메시지 대신 커스텀 Alert 사용
+        // setTitleError("약속 제목을 입력해주세요.");
+        showAlert("입력 오류", "약속 제목을 입력해주세요.", "error");
         return;
       }
-      setTitleError("");
+      setTitleError(""); // 인라인 에러 상태 초기화 (만약 계속 사용한다면)
       setStep(2);
     }
-  }, [step, title]);
+  }, [step, title, showAlert]);
 
   const handleVoteTypeChange = useCallback(
     (newType: "date" | "datetime") => {
@@ -76,7 +78,7 @@ const CreatePage = () => {
 
   const handleCreateVote = useCallback(async () => {
     if (!startDate || !endDate) {
-      alert("투표 기간을 설정해주세요."); // 한국어 직접 사용
+      showAlert("기간 미설정", "투표 기간을 설정해주세요.", "error");
       return;
     }
 
@@ -90,19 +92,21 @@ const CreatePage = () => {
 
     console.log("생성될 투표 데이터:", pollData);
 
+    // 시뮬레이션: API 호출 및 결과 처리
     const mockPollId = `pickday-${Math.random().toString(36).substr(2, 9)}`;
     const mockAdminKey = `admin-${Math.random().toString(36).substr(2, 12)}`;
     const shareableLink = `${window.location.origin}/vote/${mockPollId}`;
 
-    alert(
-      `투표 생성 완료!\n\n` +
-        `공유 링크: ${shareableLink}\n` +
-        `관리자 키 (잘 보관하세요!): ${mockAdminKey}\n\n` +
-        `(투표 페이지로 이동 버튼을 눌러 이동합니다.)` // 한국어 직접 사용
+    showAlert(
+      "투표 생성 완료!",
+      `공유 링크: ${shareableLink}\n관리자 키: ${mockAdminKey}\n\n이 정보를 잘 보관하세요! '확인'을 누르면 투표 페이지로 이동합니다.`,
+      "success",
+      () => {
+        // '확인' 버튼 클릭 시 실행될 콜백
+        router.push(`/vote/${mockPollId}`);
+      }
     );
-
-    router.push(`/vote/${mockPollId}`);
-  }, [title, voteType, startDate, endDate, router]);
+  }, [title, voteType, startDate, endDate, router, showAlert]);
 
   const renderStepContent = (currentRenderStep: number) => {
     if (currentRenderStep !== displayedStep) {
@@ -118,6 +122,7 @@ const CreatePage = () => {
           ${currentContentClasses}
         `}
       >
+        {/* 1단계: 약속 제목 */}
         {currentRenderStep === 1 && (
           <>
             <h2 className="text-xl sm:text-2xl font-semibold mb-2 text-gray-700 text-center">
@@ -134,11 +139,13 @@ const CreatePage = () => {
                 value={title}
                 onChange={(e) => {
                   setTitle(e.target.value);
-                  if (titleError) {
-                    setTitleError("");
-                  }
+                  // 인라인 에러를 사용한다면 여기서 titleError를 초기화할 수 있습니다.
+                  // if (titleError) {
+                  //   setTitleError("");
+                  // }
                 }}
                 required
+                // 인라인 에러 표시를 원치 않으면 아래 두 prop 제거 또는 titleError 상태 제거
                 error={!!titleError}
                 errorMessage={titleError}
               />
@@ -161,6 +168,7 @@ const CreatePage = () => {
           </>
         )}
 
+        {/* 2단계: 투표 종류 및 투표 범위 설정 */}
         {currentRenderStep === 2 && (
           <>
             <h2 className="text-xl sm:text-2xl font-semibold mb-2 text-gray-700 text-center">
@@ -228,6 +236,7 @@ const CreatePage = () => {
     );
   };
 
+  // 사용자가 이전에 저장 요청한 return 구조를 사용합니다.
   return (
     <div className="min-h-screen bg-gray-50 py-4 sm:py-6 flex flex-col items-center px-4">
       <div className="w-full max-w-2xl bg-white p-6 sm:p-8 rounded-lg shadow-xl relative min-h-[420px] sm:min-h-[400px]">
