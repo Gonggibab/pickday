@@ -1,17 +1,16 @@
 // components/Alert.tsx
 "use client";
 
-import React, { JSX } from "react";
+import React, { JSX } from "react"; // JSX 타입을 위해 React import
 import { useUIStore } from "@/stores/useUIStore";
 import Button from "./Button";
 
-// Heroicons (outline 버전 사용)
 import {
   CheckCircleIcon,
   XCircleIcon,
   InformationCircleIcon,
   ExclamationTriangleIcon,
-  XMarkIcon, // 닫기 버튼용 아이콘 추가
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 
 type AlertType = "success" | "error" | "info" | "warning";
@@ -66,19 +65,16 @@ const Alert = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50 backdrop-blur-sm p-4 transition-opacity duration-300 ease-in-out" // 배경 스타일 수정: 약간 어두운 회색 계열 반투명 + 블러, onClick 핸들러 제거
+      className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50 backdrop-blur-sm p-4 transition-opacity duration-300 ease-in-out"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="alert-title"
       aria-describedby="alert-message"
-      // 배경 클릭으로 닫기 기능 제거: onClick={hideAlert} 삭제
     >
       <div
         className="bg-white rounded-xl shadow-2xl w-full max-w-sm sm:max-w-md overflow-hidden transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modalShow relative"
-        // 모달 내부 클릭 시 닫히지 않도록 이벤트 전파 중단은 유지 (배경 클릭 방지용)
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 닫기 버튼 (우측 상단) */}
         <div className="absolute top-0 right-0 pt-3 pr-3 sm:pt-4 sm:pr-4">
           <button
             type="button"
@@ -96,8 +92,6 @@ const Alert = () => {
         >
           <div className="flex-shrink-0 mt-0.5">{currentStyle.icon}</div>
           <div className="flex-1 pr-8">
-            {" "}
-            {/* 닫기 버튼 공간 확보를 위해 오른쪽 패딩 추가 */}
             {alertTitle && (
               <h3
                 id="alert-title"
@@ -106,21 +100,22 @@ const Alert = () => {
                 {alertTitle}
               </h3>
             )}
-            <p
+            {/* alertMessage가 ReactNode이므로 p 태그로 감쌀 필요가 없을 수도 있지만, 일관된 스타일링을 위해 유지 */}
+            {/* 또는 alertMessage가 직접 div와 p 등을 포함하도록 할 수 있음 */}
+            <div
               id="alert-message"
-              className={`text-sm text-gray-600 ${
-                alertTitle ? "mt-1.5" : ""
-              } whitespace-pre-line`}
+              className={`text-sm text-gray-600 ${alertTitle ? "mt-1.5" : ""}`}
             >
-              {alertMessage}
-            </p>
+              {alertMessage}{" "}
+              {/* 이제 ReactNode를 렌더링, whitespace-pre-line 제거 */}
+            </div>
           </div>
         </div>
         <div className="bg-gray-50 px-5 sm:px-6 py-3 sm:py-4 flex justify-end space-x-3">
           <Button
             variant="primary"
             size="md"
-            onClick={hideAlert} // 확인 버튼도 hideAlert 호출
+            onClick={hideAlert}
             className="min-w-[90px]"
           >
             확인

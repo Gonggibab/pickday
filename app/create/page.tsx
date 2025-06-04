@@ -1,3 +1,4 @@
+// app/create/page.tsx
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
@@ -5,23 +6,30 @@ import CalendarPicker from "@/components/CalendarPicker";
 import Input from "@/components/Input";
 import Button from "@/components/Button";
 import { useCalendarStore } from "@/stores/useCalendarStore";
-import { useUIStore } from "@/stores/useUIStore"; // UI 스토어 import
+import { useUIStore } from "@/stores/useUIStore";
 import { useRouter } from "next/navigation";
+import { ClipboardDocumentIcon } from "@heroicons/react/24/outline";
 
 const CreatePage = () => {
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
-  const [titleError, setTitleError] = useState(""); // 인라인 에러 메시지용 (선택적으로 유지 또는 제거)
+  const [titleError, setTitleError] = useState("");
   const [voteType, setVoteType] = useState<"date" | "datetime">("date");
   const { resetDates, startDate, endDate } = useCalendarStore();
   const router = useRouter();
 
-  const showAlert = useUIStore((state) => state.showAlert); // useUIStore에서 showAlert 가져오기
+  const showAlert = useUIStore((state) => state.showAlert);
+  const updateAlertMessage = useUIStore((state) => state.updateAlertMessage);
+  const isAlertCurrentlyOpen = useUIStore((state) => state.isAlertOpen);
+  const currentAlertType = useUIStore((state) => state.alertType); // 성공 알림인지 확인용
 
   const [displayedStep, setDisplayedStep] = useState(1);
   const [currentContentClasses, setCurrentContentClasses] = useState(
     "opacity-0 translate-y-4"
   );
+
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [currentPollLink, setCurrentPollLink] = useState(""); // 생성된 투표 링크 저장
 
   useEffect(() => {
     if (step === displayedStep) {
@@ -36,13 +44,13 @@ const CreatePage = () => {
   }, [step, displayedStep]);
 
   const handleGoToMain = useCallback(() => {
+    resetDates();
     router.push("/");
-  }, [router]);
+  }, [router, resetDates]);
 
   const handlePrevStep = useCallback(() => {
     if (step === 2 && (startDate || endDate)) {
       const confirmReset = window.confirm(
-        // 이 confirm은 유지하거나 커스텀 Confirm 모달로 변경 가능
         "선택하신 날짜 정보가 초기화됩니다. 뒤로 가시겠습니까?"
       );
       if (confirmReset) {
@@ -57,12 +65,10 @@ const CreatePage = () => {
   const handleNextStep = useCallback(() => {
     if (step === 1) {
       if (title.trim() === "") {
-        // 인라인 에러 메시지 대신 커스텀 Alert 사용
-        // setTitleError("약속 제목을 입력해주세요.");
         showAlert("입력 오류", "약속 제목을 입력해주세요.", "error");
         return;
       }
-      setTitleError(""); // 인라인 에러 상태 초기화 (만약 계속 사용한다면)
+      setTitleError("");
       setStep(2);
     }
   }, [step, title, showAlert]);
@@ -76,37 +82,161 @@ const CreatePage = () => {
     [voteType]
   );
 
+  // 성공 알림 메시지 내용을 생성하는 함수
+  // 이 함수는 copiedLink와 currentPollLink에 의존하므로, 이 값들이 변경될 때마다
+  // 새로운 메시지 내용을 만들어서 updateAlertMessage에 전달해야 합니다.
+  const createSuccessAlertMessageJSX = useCallback(
+    (link: string, isCopied: boolean) => (
+      <div className="space-y-3 text-left">
+        <p className="text-gray-700">투표가 성공적으로 생성되었습니다!</p>
+        <div>
+          <label
+            htmlFor="poll-link-output"
+            className="block text-xs font-medium text-gray-500 mb-0.5"
+          >
+            공유 링크:
+          </label>
+          <div className="mt-1 flex rounded-md shadow-sm">
+            <input
+              type="text"
+              name="poll-link-output"
+              id="poll-link-output"
+              readOnly
+              value={link}
+              className="block w-full flex-1 rounded-none rounded-l-md border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600 focus:border-indigo-500 focus:ring-indigo-500 cursor-default"
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard
+                  .writeText(link)
+                  .then(() => {
+                    setCopiedLink(true); // 복사 성공 시 상태 변경
+                  })
+                  .catch((err) => {
+                    console.error("링크 복사 실패: ", err);
+                    // 현재 알림을 닫고 에러 알림을 새로 띄우는 것이 좋을 수 있음
+                    useUIStore.getState().hideAlert();
+                    showAlert(
+                      "복사 실패",
+                      "링크를 클립보드에 복사하는데 실패했습니다.",
+                      "error"
+                    );
+                  });
+              }}
+              className="inline-flex items-center rounded-l-none rounded-r-md border border-l-0 border-gray-300 bg-gray-50 hover:bg-gray-100 px-3 text-sm text-gray-700 focus:!ring-indigo-500 whitespace-nowrap !py-[9px]" // py 값은 Input 높이에 맞춤
+            >
+              <ClipboardDocumentIcon className="h-4 w-4 mr-1.5" />
+              복사
+            </Button>
+          </div>
+          {isCopied && (
+            <p className="text-xs text-green-600 mt-1.5 animate-fadeIn">
+              링크가 클립보드에 복사되었습니다!
+            </p>
+          )}
+        </div>
+        <p className="text-xs text-gray-500 pt-2">
+          '확인'을 누르면 생성된 투표 페이지로 이동합니다.
+        </p>
+      </div>
+    ),
+    [showAlert]
+  ); // showAlert는 의존성에 포함 (복사 실패 시 사용)
+
+  // copiedLink 또는 currentPollLink 상태가 변경될 때 알림 메시지를 업데이트
+  useEffect(() => {
+    // 성공 알림('success' type)이 현재 열려 있고, currentPollLink가 설정된 경우에만 메시지 업데이트
+    if (
+      isAlertCurrentlyOpen &&
+      currentAlertType === "success" &&
+      currentPollLink
+    ) {
+      updateAlertMessage(
+        createSuccessAlertMessageJSX(currentPollLink, copiedLink)
+      );
+    }
+    // "복사됨!" 메시지를 유지하기 위해 copiedLink를 false로 되돌리는 setTimeout 로직은 제거합니다.
+    // 이 메시지는 알림창이 닫히거나, 새로운 알림이 뜰 때 (copiedLink가 false로 초기화되므로) 사라집니다.
+  }, [
+    copiedLink,
+    currentPollLink,
+    isAlertCurrentlyOpen,
+    currentAlertType,
+    updateAlertMessage,
+    createSuccessAlertMessageJSX,
+  ]);
+
   const handleCreateVote = useCallback(async () => {
     if (!startDate || !endDate) {
       showAlert("기간 미설정", "투표 기간을 설정해주세요.", "error");
       return;
     }
 
-    const pollData = {
+    const pollPayload = {
       title: title,
       voteType: voteType,
       periodStartDate: startDate.toISOString(),
       periodEndDate: endDate.toISOString(),
-      createdAt: new Date().toISOString(),
     };
 
-    console.log("생성될 투표 데이터:", pollData);
+    try {
+      const response = await fetch("/api/polls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pollPayload),
+      });
+      const result = await response.json();
 
-    // 시뮬레이션: API 호출 및 결과 처리
-    const mockPollId = `pickday-${Math.random().toString(36).substr(2, 9)}`;
-    const mockAdminKey = `admin-${Math.random().toString(36).substr(2, 12)}`;
-    const shareableLink = `${window.location.origin}/vote/${mockPollId}`;
-
-    showAlert(
-      "투표 생성 완료!",
-      `공유 링크: ${shareableLink}\n관리자 키: ${mockAdminKey}\n\n이 정보를 잘 보관하세요! '확인'을 누르면 투표 페이지로 이동합니다.`,
-      "success",
-      () => {
-        // '확인' 버튼 클릭 시 실행될 콜백
-        router.push(`/vote/${mockPollId}`);
+      if (!response.ok) {
+        showAlert(
+          "투표 생성 실패",
+          result.error || "투표를 생성하는 중 오류가 발생했습니다.",
+          "error"
+        );
+        return;
       }
-    );
-  }, [title, voteType, startDate, endDate, router, showAlert]);
+
+      const { pollId, shareableLink: relativeShareableLink } = result;
+      const fullLink = `${window.location.origin}${relativeShareableLink}`;
+
+      setCurrentPollLink(fullLink); // 생성된 링크를 상태에 저장
+      setCopiedLink(false); // 새 알림이므로 복사 상태 초기화
+
+      // 초기 알림 메시지는 copiedLink가 false인 상태로 생성
+      showAlert(
+        "투표 생성 완료!",
+        createSuccessAlertMessageJSX(fullLink, false),
+        "success",
+        () => {
+          // onClose 콜백
+          resetDates();
+          router.push(relativeShareableLink);
+          setCurrentPollLink(""); // 페이지 이동 후 링크 상태 초기화
+          setCopiedLink(false); // 알림 닫을 때 복사 상태도 초기화
+        }
+      );
+    } catch (error) {
+      console.error("투표 생성 API 호출 중 네트워크 오류:", error);
+      showAlert(
+        "네트워크 오류",
+        "투표 생성 중 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+        "error"
+      );
+    }
+  }, [
+    title,
+    voteType,
+    startDate,
+    endDate,
+    router,
+    showAlert,
+    resetDates,
+    updateAlertMessage,
+    createSuccessAlertMessageJSX,
+  ]);
+  // setCurrentPollLink, setCopiedLink는 안정적이므로 의존성 배열에서 생략 가능
 
   const renderStepContent = (currentRenderStep: number) => {
     if (currentRenderStep !== displayedStep) {
@@ -122,7 +252,6 @@ const CreatePage = () => {
           ${currentContentClasses}
         `}
       >
-        {/* 1단계: 약속 제목 */}
         {currentRenderStep === 1 && (
           <>
             <h2 className="text-xl sm:text-2xl font-semibold mb-2 text-gray-700 text-center">
@@ -139,13 +268,11 @@ const CreatePage = () => {
                 value={title}
                 onChange={(e) => {
                   setTitle(e.target.value);
-                  // 인라인 에러를 사용한다면 여기서 titleError를 초기화할 수 있습니다.
-                  // if (titleError) {
-                  //   setTitleError("");
-                  // }
+                  if (titleError) {
+                    setTitleError("");
+                  }
                 }}
                 required
-                // 인라인 에러 표시를 원치 않으면 아래 두 prop 제거 또는 titleError 상태 제거
                 error={!!titleError}
                 errorMessage={titleError}
               />
@@ -168,7 +295,6 @@ const CreatePage = () => {
           </>
         )}
 
-        {/* 2단계: 투표 종류 및 투표 범위 설정 */}
         {currentRenderStep === 2 && (
           <>
             <h2 className="text-xl sm:text-2xl font-semibold mb-2 text-gray-700 text-center">
@@ -236,7 +362,6 @@ const CreatePage = () => {
     );
   };
 
-  // 사용자가 이전에 저장 요청한 return 구조를 사용합니다.
   return (
     <div className="min-h-screen bg-gray-50 py-4 sm:py-6 flex flex-col items-center px-4">
       <div className="w-full max-w-2xl bg-white p-6 sm:p-8 rounded-lg shadow-xl relative min-h-[420px] sm:min-h-[400px]">

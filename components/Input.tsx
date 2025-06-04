@@ -1,5 +1,8 @@
 // components/Input.tsx
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
@@ -9,10 +12,8 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   required?: boolean;
-  error?: boolean; // 에러 상태 (추가)
-  errorMessage?: string; // 에러 메시지 (추가)
-  // className prop은 InputHTMLAttributes에 이미 포함되어 있음 (input 요소 대상)
-  // wrapperClassName prop을 추가하여 컴포넌트 전체 wrapper div에 클래스를 적용할 수 있도록 함
+  error?: boolean;
+  errorMessage?: string;
   wrapperClassName?: string;
 }
 
@@ -24,51 +25,79 @@ const Input = React.memo(function Input({
   value,
   onChange,
   required = false,
-  error = false, // 기본값은 에러 없음
+  error = false,
   errorMessage,
-  disabled, // disabled 상태를 명시적으로 받음
-  className = "", // input 요소에 직접 적용될 클래스
-  wrapperClassName = "", // div wrapper에 적용될 클래스
+  disabled,
+  className = "",
+  wrapperClassName = "",
   ...rest
 }: InputProps) {
+  const [currentType, setCurrentType] = useState(type);
+
+  const togglePasswordVisibility = () => {
+    setCurrentType(currentType === "password" ? "text" : "password");
+  };
+
+  // 기본 입력 필드 스타일: 텍스트 색상 및 플레이스홀더 색상 진하게 변경
   const baseInputStyle =
-    "block w-full px-3 py-2 border rounded-md shadow-sm sm:text-sm focus:outline-none";
+    "block w-full px-3 py-2 border rounded-md shadow-sm sm:text-sm focus:outline-none appearance-none text-gray-900 placeholder-gray-500"; // text-gray-900, placeholder-gray-500 추가
 
   let stateStyle =
-    "text-gray-700 border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"; // 기본 및 포커스 스타일
+    "border-gray-300 focus:ring-indigo-500 focus:border-indigo-500";
 
   if (error) {
+    // 에러 시 텍스트 및 플레이스홀더 색상은 유지 (이미 충분히 대비됨)
     stateStyle =
-      "border-red-500 focus:ring-red-500 focus:border-red-500 text-red-700 placeholder-red-400"; // 에러 시 스타일
+      "border-red-500 focus:ring-red-500 focus:border-red-500 text-red-700 placeholder-red-400";
   }
 
   if (disabled) {
-    stateStyle = "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"; // 비활성화 시 스타일
+    // 비활성화 시 텍스트 색상은 연하게 유지, 플레이스홀더도 연하게
+    stateStyle =
+      "border-gray-200 bg-gray-100 text-gray-500 placeholder-gray-400 cursor-not-allowed"; // placeholder-gray-400 추가
   }
 
   return (
     <div className={`w-full ${wrapperClassName}`}>
-      {" "}
-      {/* 외부에서 wrapper div의 스타일링 제어 */}
       <label
         htmlFor={id}
-        className="block text-sm font-medium text-gray-700 mb-1"
+        className="block text-sm font-medium text-gray-800 mb-1" // 라벨 텍스트도 약간 더 진하게 (text-gray-800)
       >
         {label} {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
-      <input
-        id={id}
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        required={required}
-        disabled={disabled}
-        className={`${baseInputStyle} ${stateStyle} ${className}`} // className prop은 input 요소에 직접 전달
-        aria-invalid={error ? "true" : "false"} // 접근성: 에러 상태 알림
-        aria-describedby={errorMessage && error ? `${id}-error` : undefined} // 접근성: 에러 메시지 연결
-        {...rest}
-      />
+      <div className="relative">
+        <input
+          id={id}
+          type={currentType}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          required={required}
+          disabled={disabled}
+          className={`${baseInputStyle} ${stateStyle} ${className} ${
+            type === "password" ? "pr-10" : ""
+          }`}
+          aria-invalid={error ? "true" : "false"}
+          aria-describedby={errorMessage && error ? `${id}-error` : undefined}
+          {...rest}
+        />
+        {type === "password" && (
+          <button
+            type="button"
+            onClick={togglePasswordVisibility}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-gray-500 hover:text-gray-700 focus:outline-none"
+            aria-label={
+              currentType === "password" ? "비밀번호 보기" : "비밀번호 숨기기"
+            }
+          >
+            {currentType === "password" ? (
+              <EyeIcon className="h-5 w-5" />
+            ) : (
+              <EyeSlashIcon className="h-5 w-5" />
+            )}
+          </button>
+        )}
+      </div>
       {errorMessage && error && (
         <p id={`${id}-error`} className="mt-1.5 text-xs text-red-600">
           {errorMessage}

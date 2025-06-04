@@ -11,7 +11,9 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "autoprefixer": "^10.4.21",
+    "bcrypt": "^6.0.0",
     "date-fns": "^4.1.0",
+    "firebase-admin": "^13.4.0",
     "next": "15.3.3",
     "postcss": "^8.5.4",
     "react": "^19.0.0",
@@ -22,9 +24,11 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.8",
+    "@types/bcrypt": "^5.0.2",
     "@types/node": "^20.17.57",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
     "typescript": "^5"
   }
 }
