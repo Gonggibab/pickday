@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation"; // useSearchParams 제거
-import Button from "@/components/Button";
+import { useParams, useRouter } from "next/navigation";
+import Button from "@/components/Button"; // Button 컴포넌트 import
 import Input from "@/components/Input";
 import { useUIStore } from "@/stores/useUIStore";
 
@@ -11,10 +11,9 @@ interface PollTitleData {
   title?: string;
 }
 interface ParticipantAuthResponse {
-  // API 응답 타입 정의
   success: boolean;
   participant: { nickname: string };
-  previousSelectedDates: string[] | null; // YYYY-MM-DD 형식의 배열 또는 null
+  previousSelectedDates: string[] | null;
   error?: string;
 }
 
@@ -30,7 +29,6 @@ const JoinVotePage = () => {
   const [pollTitle, setPollTitle] = useState("투표 참여");
 
   useEffect(() => {
-    // ... (투표 제목 가져오는 로직은 기존과 동일) ...
     if (pollId) {
       fetch(`/api/polls/${pollId}`)
         .then((res) => {
@@ -43,6 +41,10 @@ const JoinVotePage = () => {
         .catch((err) => console.error("Failed to fetch poll title:", err));
     }
   }, [pollId]);
+
+  const handleGoToMain = useCallback(() => {
+    router.push("/");
+  }, [router]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -63,7 +65,7 @@ const JoinVotePage = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ nickname, password }),
         });
-        const result = (await response.json()) as ParticipantAuthResponse; // 타입 적용
+        const result = (await response.json()) as ParticipantAuthResponse;
 
         if (!response.ok || !result.success) {
           showAlert(
@@ -72,18 +74,14 @@ const JoinVotePage = () => {
             "error"
           );
         } else {
-          // 인증 성공 시 nickname과 previousSelectedDates를 localStorage에 저장
           const participantDataToStore = {
             nickname: result.participant.nickname,
-            // previousSelectedDates가 null일 경우 빈 배열로 저장
             previousSelectedDates: result.previousSelectedDates || [],
           };
           localStorage.setItem(
             `pickday_participant_data_${pollId}`,
             JSON.stringify(participantDataToStore)
           );
-
-          // 쿼리 파라미터 없이 투표 페이지로 이동
           router.replace(`/vote/${pollId}`);
         }
       } catch (err) {
@@ -101,7 +99,6 @@ const JoinVotePage = () => {
   );
 
   return (
-    // ... (JoinVotePage의 JSX는 이전과 동일) ...
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded-lg shadow-xl">
         <div className="text-center mb-8">
@@ -151,6 +148,19 @@ const JoinVotePage = () => {
             {loading ? "처리 중..." : "참여하기 / 내 투표 확인"}
           </Button>
         </form>
+
+        {/* 메인으로 돌아가기 버튼 추가 */}
+        <div className="mt-8 border-t pt-6 text-center">
+          <Button
+            variant="ghost" // 또는 "outline" (text-like outline)
+            size="md"
+            onClick={handleGoToMain}
+            className="w-full sm:w-auto text-gray-600 hover:text-indigo-600" // ghost variant에 맞게 색상 조정
+            disabled={loading}
+          >
+            메인으로 돌아가기
+          </Button>
+        </div>
       </div>
     </div>
   );

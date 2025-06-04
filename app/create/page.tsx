@@ -8,28 +8,30 @@ import Button from "@/components/Button";
 import { useCalendarStore } from "@/stores/useCalendarStore";
 import { useUIStore } from "@/stores/useUIStore";
 import { useRouter } from "next/navigation";
-import { ClipboardDocumentIcon } from "@heroicons/react/24/outline";
+import { ClipboardDocumentIcon } from "@heroicons/react/24/outline"; // 아이콘 import
 
 const CreatePage = () => {
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
   const [titleError, setTitleError] = useState("");
   const [voteType, setVoteType] = useState<"date" | "datetime">("date");
-  const { resetDates, startDate, endDate } = useCalendarStore();
+
+  const { startDate, endDate, setPeriod, resetDates } = useCalendarStore();
   const router = useRouter();
 
   const showAlert = useUIStore((state) => state.showAlert);
-  const updateAlertMessage = useUIStore((state) => state.updateAlertMessage);
-  const isAlertCurrentlyOpen = useUIStore((state) => state.isAlertOpen);
-  const currentAlertType = useUIStore((state) => state.alertType); // 성공 알림인지 확인용
+  const updateAlertMessage = useUIStore((state) => state.updateAlertMessage); // 메시지 업데이트 함수
+  const isAlertCurrentlyOpen = useUIStore((state) => state.isAlertOpen); // 현재 알림창 상태
+  const currentAlertType = useUIStore((state) => state.alertType); // 현재 알림 타입
 
   const [displayedStep, setDisplayedStep] = useState(1);
   const [currentContentClasses, setCurrentContentClasses] = useState(
     "opacity-0 translate-y-4"
   );
 
+  // 링크 복사 및 관련 UI를 위한 상태 복원
   const [copiedLink, setCopiedLink] = useState(false);
-  const [currentPollLink, setCurrentPollLink] = useState(""); // 생성된 투표 링크 저장
+  const [currentPollLink, setCurrentPollLink] = useState("");
 
   useEffect(() => {
     if (step === displayedStep) {
@@ -75,16 +77,12 @@ const CreatePage = () => {
 
   const handleVoteTypeChange = useCallback(
     (newType: "date" | "datetime") => {
-      if (voteType !== newType) {
-        setVoteType(newType);
-      }
+      if (voteType !== newType) setVoteType(newType);
     },
     [voteType]
   );
 
-  // 성공 알림 메시지 내용을 생성하는 함수
-  // 이 함수는 copiedLink와 currentPollLink에 의존하므로, 이 값들이 변경될 때마다
-  // 새로운 메시지 내용을 만들어서 updateAlertMessage에 전달해야 합니다.
+  // 성공 알림 메시지 JSX를 생성하는 함수 (useCallback으로 최적화)
   const createSuccessAlertMessageJSX = useCallback(
     (link: string, isCopied: boolean) => (
       <div className="space-y-3 text-left">
@@ -109,14 +107,14 @@ const CreatePage = () => {
               variant="ghost"
               size="sm"
               onClick={() => {
+                // 복사 버튼 클릭 로직
                 navigator.clipboard
                   .writeText(link)
                   .then(() => {
-                    setCopiedLink(true); // 복사 성공 시 상태 변경
+                    setCopiedLink(true);
                   })
                   .catch((err) => {
                     console.error("링크 복사 실패: ", err);
-                    // 현재 알림을 닫고 에러 알림을 새로 띄우는 것이 좋을 수 있음
                     useUIStore.getState().hideAlert();
                     showAlert(
                       "복사 실패",
@@ -125,7 +123,7 @@ const CreatePage = () => {
                     );
                   });
               }}
-              className="inline-flex items-center rounded-l-none rounded-r-md border border-l-0 border-gray-300 bg-gray-50 hover:bg-gray-100 px-3 text-sm text-gray-700 focus:!ring-indigo-500 whitespace-nowrap !py-[9px]" // py 값은 Input 높이에 맞춤
+              className="inline-flex items-center rounded-l-none rounded-r-md border border-l-0 border-gray-300 bg-gray-50 hover:bg-gray-100 px-3 text-sm text-gray-700 focus:!ring-indigo-500 whitespace-nowrap !py-[9px]"
             >
               <ClipboardDocumentIcon className="h-4 w-4 mr-1.5" />
               복사
@@ -143,11 +141,10 @@ const CreatePage = () => {
       </div>
     ),
     [showAlert]
-  ); // showAlert는 의존성에 포함 (복사 실패 시 사용)
+  ); // setCopiedLink는 안정적이므로 의존성에 포함하지 않아도 되나, showAlert는 포함
 
   // copiedLink 또는 currentPollLink 상태가 변경될 때 알림 메시지를 업데이트
   useEffect(() => {
-    // 성공 알림('success' type)이 현재 열려 있고, currentPollLink가 설정된 경우에만 메시지 업데이트
     if (
       isAlertCurrentlyOpen &&
       currentAlertType === "success" &&
@@ -157,8 +154,7 @@ const CreatePage = () => {
         createSuccessAlertMessageJSX(currentPollLink, copiedLink)
       );
     }
-    // "복사됨!" 메시지를 유지하기 위해 copiedLink를 false로 되돌리는 setTimeout 로직은 제거합니다.
-    // 이 메시지는 알림창이 닫히거나, 새로운 알림이 뜰 때 (copiedLink가 false로 초기화되므로) 사라집니다.
+    // "복사됨!" 메시지를 계속 유지 (setTimeout으로 false로 되돌리는 로직 없음)
   }, [
     copiedLink,
     currentPollLink,
@@ -201,10 +197,10 @@ const CreatePage = () => {
       const { pollId, shareableLink: relativeShareableLink } = result;
       const fullLink = `${window.location.origin}${relativeShareableLink}`;
 
-      setCurrentPollLink(fullLink); // 생성된 링크를 상태에 저장
-      setCopiedLink(false); // 새 알림이므로 복사 상태 초기화
+      setCurrentPollLink(fullLink); // (1) 생성된 링크를 상태에 저장
+      setCopiedLink(false); // (2) 새 알림이므로 복사 상태는 false로 초기화
 
-      // 초기 알림 메시지는 copiedLink가 false인 상태로 생성
+      // (3) 초기 알림 메시지 (복사 안된 상태)로 showAlert 호출
       showAlert(
         "투표 생성 완료!",
         createSuccessAlertMessageJSX(fullLink, false),
@@ -213,8 +209,8 @@ const CreatePage = () => {
           // onClose 콜백
           resetDates();
           router.push(relativeShareableLink);
-          setCurrentPollLink(""); // 페이지 이동 후 링크 상태 초기화
-          setCopiedLink(false); // 알림 닫을 때 복사 상태도 초기화
+          setCurrentPollLink(""); // 상태 초기화
+          setCopiedLink(false); // 상태 초기화
         }
       );
     } catch (error) {
@@ -236,21 +232,16 @@ const CreatePage = () => {
     updateAlertMessage,
     createSuccessAlertMessageJSX,
   ]);
-  // setCurrentPollLink, setCopiedLink는 안정적이므로 의존성 배열에서 생략 가능
 
   const renderStepContent = (currentRenderStep: number) => {
+    // ... (이전 답변과 동일한 renderStepContent 함수 내용) ...
     if (currentRenderStep !== displayedStep) {
       return null;
     }
-
     return (
       <div
         key={`step-${currentRenderStep}`}
-        className={`
-          w-full
-          transition-all duration-300 ease-in-out
-          ${currentContentClasses}
-        `}
+        className={`w-full transition-all duration-300 ease-in-out ${currentContentClasses}`}
       >
         {currentRenderStep === 1 && (
           <>
@@ -294,7 +285,6 @@ const CreatePage = () => {
             </div>
           </>
         )}
-
         {currentRenderStep === 2 && (
           <>
             <h2 className="text-xl sm:text-2xl font-semibold mb-2 text-gray-700 text-center">
@@ -303,7 +293,6 @@ const CreatePage = () => {
             <p className="text-sm sm:text-base text-gray-500 mb-6 sm:mb-8 text-center">
               원하는 투표 방식과 날짜 범위를 설정해주세요.
             </p>
-
             <fieldset className="mb-6">
               <legend className="block text-sm font-medium text-gray-700 mb-2 pl-1">
                 투표 종류
@@ -317,7 +306,7 @@ const CreatePage = () => {
                     onChange={() => handleVoteTypeChange("date")}
                     className="form-radio h-4 w-4 sm:h-5 sm:w-5 text-indigo-600 mr-2 sm:mr-3"
                   />
-                  <span className="text-gray-800">날짜만 투표</span>
+                  <span className="text-gray-800">날짜만 투표받기</span>
                 </label>
                 <label className="flex items-center text-sm sm:text-md cursor-pointer p-2 rounded-md hover:bg-gray-100 transition-colors">
                   <input
@@ -331,24 +320,19 @@ const CreatePage = () => {
                 </label>
               </div>
             </fieldset>
-
             <div className="mb-6 sm:mb-8">
               <p className="block text-sm font-medium text-gray-700 mb-2 pl-1">
                 투표할 날짜 범위
               </p>
-              <CalendarPicker selectionMode="period" />
+              <CalendarPicker
+                selectionMode="period"
+                startDate={startDate}
+                endDate={endDate}
+                onPeriodSelect={setPeriod}
+                minSelectableDate={new Date()}
+                initialMonth={startDate || new Date()}
+              />
             </div>
-
-            {voteType === "datetime" && (
-              <div className="mb-6 p-3 bg-indigo-50 rounded-lg border border-indigo-200 text-center">
-                <p className="text-indigo-700 font-medium text-sm">
-                  시간도 함께 투표받기를 선택하셨습니다.
-                </p>
-                <p className="text-indigo-600 text-xs">
-                  (시간 선택 기능은 추후 추가될 예정입니다.)
-                </p>
-              </div>
-            )}
             <Button
               onClick={handleCreateVote}
               className="w-full py-2.5 sm:py-3"
