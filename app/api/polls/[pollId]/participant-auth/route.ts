@@ -1,114 +1,105 @@
 // app/api/polls/[pollId]/participant-auth/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import admin, { firestore } from "@/lib/firebaseAdmin";
+import admin, { firestore } from "@/lib/firebaseAdmin"; ///participant-auth/route.ts]
 import bcrypt from "bcrypt";
 
-interface AuthRequest {
+const SALT_ROUNDS = 10; ///participant-auth/route.ts]
+
+// 요청 본문 타입을 명확히 정의 (types/index.ts로 옮기거나 여기서 사용)
+interface ParticipantAuthRequest {
   nickname: string;
   password?: string;
 }
 
-// 이 Params 인터페이스는 context.params의 구조를 나타냅니다.
-interface RouteParams {
-  pollId: string;
-}
-
-const SALT_ROUNDS = 10;
-
 export async function POST(
   request: NextRequest,
-  { params }: { params: RouteParams } // context 객체에서 params를 직접 구조 분해하고 타입 지정
+  { params: paramsPromise }: { params: Promise<{ pollId: string }> }
 ) {
-  let extractedPollId: string | undefined; // URL 파싱용 변수는 유지 가능
+  let pollIdFromParams: string | undefined;
   try {
-    const pollId = params.pollId; // context에서 직접 구조 분해한 params 사용
-
-    // URL에서 추출하는 로직은 폴백 또는 추가 검증용으로 남겨둘 수 있으나,
-    // params.pollId가 우선적으로 사용되어야 합니다.
-    // const url = new URL(request.url);
-    // const pathSegments = url.pathname.split('/');
-    // extractedPollId = pathSegments.length > 2 ? pathSegments[pathSegments.length - 2] : undefined;
-    // if (!pollId && extractedPollId) pollId = extractedPollId; // 폴백
+    const { pollId } = await paramsPromise; // await 사용
+    pollIdFromParams = pollId;
 
     if (!pollId) {
-      console.warn("[API /participant-auth] Poll ID is missing.");
+      console.warn(
+        "[API /participant-auth] Poll ID could not be resolved from params promise."
+      );
       return NextResponse.json(
         { error: "투표 ID가 필요합니다." },
         { status: 400 }
-      );
+      ); ///participant-auth/route.ts]
     }
 
-    const body = (await request.json()) as AuthRequest;
+    const body = (await request.json()) as ParticipantAuthRequest; ///participant-auth/route.ts]
     const { nickname, password } = body;
 
     console.log(
       `[API /participant-auth] Attempting auth for pollId: ${pollId}, nickname: ${nickname}`
-    );
+    ); ///participant-auth/route.ts]
 
-    // ... (나머지 로직은 이전과 동일하게 pollId 사용) ...
     if (!nickname || !password) {
       console.warn(
         `[API /participant-auth] Missing nickname or password for pollId: ${pollId}`
-      );
+      ); ///participant-auth/route.ts]
       return NextResponse.json(
         { error: "필수 항목(닉네임, 비밀번호)이 누락되었습니다." },
         { status: 400 }
-      );
+      ); ///participant-auth/route.ts]
     }
 
-    const pollRef = firestore.collection("polls").doc(pollId);
+    const pollRef = firestore.collection("polls").doc(pollId); ///participant-auth/route.ts]
     const pollDoc = await pollRef.get();
 
     if (!pollDoc.exists) {
-      console.warn(`[API /participant-auth] Poll not found: ${pollId}`);
+      console.warn(`[API /participant-auth] Poll not found: ${pollId}`); ///participant-auth/route.ts]
       return NextResponse.json(
         { error: "해당 ID의 투표를 찾을 수 없습니다." },
         { status: 404 }
-      );
+      ); ///participant-auth/route.ts]
     }
 
-    const participantsRef = pollRef.collection("participants");
-    const participantDocRef = participantsRef.doc(nickname);
-    const participantDoc = await participantDocRef.get();
+    const participantsRef = pollRef.collection("participants"); ///participant-auth/route.ts]
+    const participantDocRef = participantsRef.doc(nickname); ///participant-auth/route.ts]
+    const participantDoc = await participantDocRef.get(); ///participant-auth/route.ts]
 
     let previousSelectedDates: string[] | null = null;
 
     if (participantDoc.exists) {
-      const participantData = participantDoc.data();
+      const participantData = participantDoc.data(); ///participant-auth/route.ts]
       if (!participantData || !participantData.passwordHash) {
         console.error(
           `[API /participant-auth] Participant data error for nickname: ${nickname}, pollId: ${pollId}`
-        );
+        ); ///participant-auth/route.ts]
         return NextResponse.json(
           { error: "참여자 정보가 올바르지 않습니다." },
           { status: 500 }
-        );
+        ); ///participant-auth/route.ts]
       }
       const passwordMatch = await bcrypt.compare(
         password,
         participantData.passwordHash
-      );
+      ); ///participant-auth/route.ts]
       if (!passwordMatch) {
         console.warn(
           `[API /participant-auth] Password mismatch for nickname: ${nickname}, pollId: ${pollId}`
-        );
+        ); ///participant-auth/route.ts]
         return NextResponse.json(
           { error: "비밀번호가 일치하지 않습니다." },
           { status: 401 }
-        );
+        ); ///participant-auth/route.ts]
       }
       previousSelectedDates = Array.isArray(participantData.selectedDates)
         ? participantData.selectedDates
-        : null;
+        : null; ///participant-auth/route.ts]
     } else {
-      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS); ///participant-auth/route.ts]
       await participantDocRef.set({
         nickname: nickname,
         passwordHash: hashedPassword,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        selectedDates: [],
-      });
-      previousSelectedDates = [];
+        selectedDates: [], // 신규 참여자는 빈 배열로 시작
+      }); ///participant-auth/route.ts]
+      previousSelectedDates = []; // 신규 참여자의 경우 빈 배열 반환/participant-auth/route.ts]
     }
 
     return NextResponse.json(
@@ -118,11 +109,13 @@ export async function POST(
         previousSelectedDates: previousSelectedDates,
       },
       { status: 200 }
-    );
+    ); ///participant-auth/route.ts]
   } catch (error) {
-    // params가 구조 분해 할당되었으므로, catch 블록에서는 직접 참조 불가 (필요시 try 블록 상단에서 pollId 변수에 할당하여 사용)
-    // const pollIdForErrorLog = params?.pollId || extractedPollId || 'unknown';
-    console.error(`[API /participant-auth] 참여자 인증 중 오류 발생:`, error); // Poll ID 로깅은 위에서 이미 처리됨
+    const pollIdForErrorLog = pollIdFromParams || "unknown";
+    console.error(
+      `[API /participant-auth] 참여자 인증 중 오류 발생 (Poll ID: ${pollIdForErrorLog}):`,
+      error
+    ); ///participant-auth/route.ts]
     let errorMessage = "참여자 인증에 실패했습니다.";
     if (error instanceof Error) {
       errorMessage = error.message;

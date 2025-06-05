@@ -1,41 +1,34 @@
 // app/api/polls/[pollId]/vote/route.ts
-import { NextRequest, NextResponse } from "next/server"; // NextRequest 임포트
-import admin, { firestore } from "@/lib/firebaseAdmin";
+import { NextRequest, NextResponse } from "next/server";
+import admin, { firestore } from "@/lib/firebaseAdmin"; ///vote/route.ts]
 import bcrypt from "bcrypt";
 
+// types/index.ts 또는 이 파일 내에 VoteRequest 타입 정의
 interface VoteRequest {
   nickname: string;
   password?: string;
-  selectedDates?: string[];
+  selectedDates?: string[]; // YYYY-MM-DD 형식
 }
 
-interface Params {
-  // context 타입 명시를 위해 유지
-  pollId: string;
-}
-
-export async function POST(request: NextRequest, context: { params: Params }) {
-  let extractedPollId: string | undefined;
+export async function POST(
+  request: NextRequest,
+  { params: paramsPromise }: { params: Promise<{ pollId: string }> }
+) {
+  let pollIdFromParams: string | undefined;
   try {
-    const url = new URL(request.url);
-    const pathSegments = url.pathname.split("/"); // ['', 'api', 'polls', 'some-poll-id', 'vote']
-    extractedPollId =
-      pathSegments.length > 2
-        ? pathSegments[pathSegments.length - 2]
-        : undefined;
+    const { pollId } = await paramsPromise; // await 사용
+    pollIdFromParams = pollId;
 
-    if (!extractedPollId) {
-      console.warn("[API /vote] Poll ID could not be extracted from URL.");
-      // extractedPollId = context.params.pollId; // 폴백으로 사용 시 경고 발생 가능성
-      // if (!extractedPollId) {
+    if (!pollId) {
+      console.warn(
+        "[API /vote] Poll ID could not be resolved from params promise."
+      );
       return NextResponse.json(
         { error: "투표 ID가 필요합니다." },
         { status: 400 }
       );
-      // }
     }
 
-    const pollId = extractedPollId; // 이제 이 pollId를 사용
     const body = (await request.json()) as VoteRequest;
     const { nickname, password, selectedDates } = body;
 
@@ -45,7 +38,6 @@ export async function POST(request: NextRequest, context: { params: Params }) {
       selectedDates && Array.isArray(selectedDates) && selectedDates.length > 0;
 
     if (!nickname || !hasValidSelectedDates) {
-      // pollId는 URL에서 이미 확인
       console.error(
         "[API /vote] Validation Failed: Missing nickname or selectedDates.",
         { pollId, nickname, selectedDates }
@@ -63,58 +55,57 @@ export async function POST(request: NextRequest, context: { params: Params }) {
       );
     }
 
-    const pollRef = firestore.collection("polls").doc(pollId);
-    // const pollDocSnapshot = await pollRef.get(); // 트랜잭션 내에서 읽을 것이므로 여기서는 제거 가능
-
-    // 참여자 인증
-    const participantsRef = pollRef.collection("participants");
-    const participantDocRef = participantsRef.doc(nickname);
-    const participantDoc = await participantDocRef.get();
+    const pollRef = firestore.collection("polls").doc(pollId); ///vote/route.ts]
+    const participantsRef = pollRef.collection("participants"); ///vote/route.ts]
+    const participantDocRef = participantsRef.doc(nickname); ///vote/route.ts]
+    const participantDoc = await participantDocRef.get(); ///vote/route.ts]
 
     if (!participantDoc.exists) {
       console.error(
         `[API /vote] Participant not registered: ${nickname} for poll ${pollId}`
-      );
+      ); ///vote/route.ts]
       return NextResponse.json(
         { error: "등록되지 않은 참여자입니다. 먼저 참여 등록을 해주세요." },
         { status: 403 }
-      );
+      ); ///vote/route.ts]
     }
 
-    const participantData = participantDoc.data();
+    const participantData = participantDoc.data(); ///vote/route.ts]
     if (!participantData || !participantData.passwordHash) {
       console.error(
         `[API /vote] Participant data error for nickname: ${nickname}`
-      );
+      ); ///vote/route.ts]
       return NextResponse.json(
         { error: "참여자 정보가 올바르지 않습니다." },
         { status: 401 }
-      );
+      ); ///vote/route.ts]
     }
+
     const passwordMatch = await bcrypt.compare(
       password,
       participantData.passwordHash
-    );
+    ); ///vote/route.ts]
     if (!passwordMatch) {
-      console.error(`[API /vote] Password mismatch for nickname: ${nickname}`);
+      console.error(`[API /vote] Password mismatch for nickname: ${nickname}`); ///vote/route.ts]
       return NextResponse.json(
         { error: "비밀번호가 일치하지 않습니다." },
         { status: 401 }
-      );
+      ); ///vote/route.ts]
     }
 
     await firestore.runTransaction(async (transaction) => {
-      const currentPollDocInTransaction = await transaction.get(pollRef);
+      const currentPollDocInTransaction = await transaction.get(pollRef); ///vote/route.ts]
       if (!currentPollDocInTransaction.exists) {
         throw new Error("투표를 찾을 수 없습니다 (Transaction).");
       }
-      const currentPollData = currentPollDocInTransaction.data();
+      const currentPollData = currentPollDocInTransaction.data(); ///vote/route.ts]
       if (!currentPollData || !Array.isArray(currentPollData.options)) {
         throw new Error("투표 옵션 데이터가 올바르지 않습니다 (Transaction).");
       }
 
       const optionsWithoutOldVotes = currentPollData.options.map(
         (option: any) => ({
+          // TODO: PollOption 타입 사용 고려
           ...option,
           votes: Array.isArray(option.votes)
             ? option.votes.filter(
@@ -122,36 +113,36 @@ export async function POST(request: NextRequest, context: { params: Params }) {
               )
             : [],
         })
-      );
+      ); ///vote/route.ts]
 
       const newOptionsWithVote = optionsWithoutOldVotes.map((option: any) => {
-        if (selectedDates.includes(option.date)) {
+        // TODO: PollOption 타입 사용 고려
+        if (selectedDates!.includes(option.date)) {
           const updatedVotes = Array.isArray(option.votes)
             ? [...option.votes, nickname]
             : [nickname];
           return { ...option, votes: Array.from(new Set(updatedVotes)) };
         }
         return option;
-      });
+      }); ///vote/route.ts]
 
-      transaction.update(pollRef, { options: newOptionsWithVote });
+      transaction.update(pollRef, { options: newOptionsWithVote }); ///vote/route.ts]
 
       transaction.update(participantDocRef, {
-        selectedDates: selectedDates,
+        selectedDates: selectedDates, // YYYY-MM-DD 형식으로 저장
         lastVotedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      }); ///vote/route.ts]
     });
 
     console.log(
       `[API /vote] Vote successfully recorded/updated for ${nickname} on poll ${pollId}`
-    );
+    ); ///vote/route.ts]
     return NextResponse.json(
       { message: "투표가 성공적으로 기록(수정)되었습니다." },
       { status: 200 }
-    );
+    ); ///vote/route.ts]
   } catch (error) {
-    const pollIdForErrorLog =
-      extractedPollId || context.params?.pollId || "unknown";
+    const pollIdForErrorLog = pollIdFromParams || "unknown";
     console.error(
       `[API /vote] Exception during vote submission (Poll ID: ${pollIdForErrorLog}):`,
       error
